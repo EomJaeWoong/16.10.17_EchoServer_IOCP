@@ -1,8 +1,13 @@
 #include <WinSock2.h>
+#include <Windows.h>
 #include <process.h>
 #include <list>
 
+#define MAX_THREAD 5
+
 using namespace std;
+
+#pragma comment(lib,"Ws2_32.lib")
 
 #include "StreamQueue.h"
 #include "NPacket.h"
@@ -10,15 +15,22 @@ using namespace std;
 
 SOCKET listen_sock;
 CLIENT g_Client;
-HANDLE hcp;
+CRITICAL_SECTION cs;
+HANDLE hThread[MAX_THREAD];
 
 void main()
 {
 	InitServer();
+
+	InitializeCriticalSection(&cs);
+
+	WaitForMultipleObjects(MAX_THREAD, hThread, TRUE, INFINITE);
 }
 
 void InitServer()
 {
+	HANDLE hcp;
+
 	int retval;
 
 	//윈속 초기화
@@ -36,21 +48,20 @@ void InitServer()
 		return;
 
 	//쓰레드 생성
-	HANDLE hThread;
 	unsigned int uiThreadID;
-	hThread = (HANDLE)_beginthreadex(NULL, 0, AcceptThread, NULL, 0, &uiThreadID);
+	hThread[0] = (HANDLE)_beginthreadex(NULL, 0, AcceptThread, hcp, 0, &uiThreadID);
 	if (hThread == NULL)
 		return;
 	CloseHandle(hThread);
 
-	hThread = (HANDLE)_beginthreadex(NULL, 0, SendThread, NULL, 0, &uiThreadID);
+	hThread[1] = (HANDLE)_beginthreadex(NULL, 0, SendThread, hcp, 0, &uiThreadID);
 	if (hThread == NULL)
 		return;
 	CloseHandle(hThread);
 
-	for (int iCnt = 0; iCnt < 3; iCnt++)
+	for (int iCnt = 2; iCnt < 5; iCnt++)
 	{
-		hThread = (HANDLE)_beginthreadex(NULL, 0, IOCPWorkerThread, NULL, 0, &uiThreadID);
+		hThread[iCnt] = (HANDLE)_beginthreadex(NULL, 0, IOCPWorkerThread, hcp, 0, &uiThreadID);
 		if (hThread == NULL)
 			return;
 		CloseHandle(hThread);
@@ -76,7 +87,6 @@ void InitServer()
 unsigned __stdcall AcceptThread(LPVOID acceptArg)
 {
 	HANDLE hcp = (HANDLE)acceptArg;
-	WSABUF wBuf;
 	SOCKADDR_IN sockaddr;
 	int addrlen = sizeof(SOCKADDR_IN);
 
@@ -85,20 +95,13 @@ unsigned __stdcall AcceptThread(LPVOID acceptArg)
 	st_CLIENT *pClient = CreateClient();
 	pClient->socket = accept(listen_sock, (SOCKADDR *)&sockaddr, &addrlen);
 	if (pClient->socket == INVALID_SOCKET)
-		return;
+		return 1;
 
 	g_Client.push_back(pClient);
+	
+	hcp = CreateIoCompletionPort((HANDLE)pClient->socket, hcp, (DWORD)pClient, 0);
 
-	InterlockedIncrement(&pClient->iIOCount);
-	retval = WSARecv(pClient->socket, &wBuf, 1, NULL, 0, &pClient->RecvOverlapped, NULL);
-	if (retval == SOCKET_ERROR)
-	{
-		if (GetLastError() != WSA_IO_PENDING)
-		{
-			InterlockedDecrement(&pClient->iIOCount);
-			return;
-		}
-	}
+	RecvPost(pClient);
 }
 
 /*
@@ -116,21 +119,24 @@ unsigned __stdcall SendThread(LPVOID sendArg)
 {
 	CLIENT::iterator cIter;
 
-	for (cIter = g_Client.begin(); cIter != g_Client.end(); ++cIter)
+	while (1)
 	{
-		st_CLIENT *pClient = (*cIter);
-
-		if (pClient->SendQ.GetUseSize() > 0 && pClient->bSendFlag == FALSE)
+		for (cIter = g_Client.begin(); cIter != g_Client.end(); ++cIter)
 		{
-			WSABUF sendBuf;
-			sendBuf.buf = pClient->SendQ.GetReadBufferPtr();
+			st_CLIENT *pClient = (*cIter);
 
-			pClient->bSendFlag = TRUE;
-			WSASend(pClient->socket, &sendBuf, 1, NULL, 0, &pClient->SendOverlapped, NULL);
+			if (pClient->SendQ.GetUseSize() > 0 && pClient->bSendFlag == FALSE)
+			{
+				WSABUF sendBuf;
+				sendBuf.buf = pClient->SendQ.GetReadBufferPtr();
+				sendBuf.len = pClient->SendQ.GetNotBrokenGetSize();
+				pClient->bSendFlag = TRUE;
+				WSASend(pClient->socket, &sendBuf, 1, NULL, 0, &pClient->SendOverlapped, NULL);
+			}
 		}
-	}
 
-	Sleep(20);
+		Sleep(20);
+	}
 }
 
 /*
@@ -140,20 +146,40 @@ WSARecv 완료 -> RecvQ 에서 완료된 패킷에 대한 로직 처리.
 */
 unsigned __stdcall IOCPWorkerThread(LPVOID workerArg)
 {
-	DWORD dwTransferred;
+	DWORD dwTransferred = 0;
 
+	HANDLE hcp = (HANDLE)workerArg;
 	WSABUF RecvBuf;
-	st_CLIENT stClient;
+	OVERLAPPED *pOverlapped = NULL;
+	st_CLIENT *pClient = NULL;
 
-	GetQueuedCompletionStatus((HANDLE)workerArg, &dwTransferred, (LPDWORD)&stClient.socket,
-		(LPOVERLAPPED *)&stClient.RecvOverlapped, INFINITE);
+	int retval;
 
-	if (0 == dwTransferred)
+	while (1)
 	{
-		shutdown(stClient.socket, SD_BOTH);
-	}
+		retval = GetQueuedCompletionStatus(hcp, &dwTransferred, (LPDWORD)pClient,
+			(LPOVERLAPPED *)pOverlapped, INFINITE);
 
-	else if ()
+		if (0 == dwTransferred)
+		{
+			shutdown(pClient->socket, SD_BOTH);
+		}
+
+		//recv 처리
+		else if (pOverlapped == &pClient->RecvOverlapped)
+		{
+			SendPost(pClient);
+		}
+
+		//send 처리
+		else if (pOverlapped == &pClient->SendOverlapped)
+		{
+
+		}
+
+		if (0 == InterlockedDecrement(&pClient->iIOCount))
+			ReleaseClient();
+	}
 }
 
 st_CLIENT *CreateClient()
@@ -172,4 +198,51 @@ st_CLIENT *CreateClient()
 	pClient->iIOCount = 0;
 
 	return pClient;
+}
+
+void ReleaseClient()
+{
+
+}
+
+void RecvPost(st_CLIENT *pClient)
+{
+	int retval, iCount;
+	WSABUF wBuf;
+
+	wBuf.buf = pClient->RecvQ.GetWriteBufferPtr();
+	wBuf.len = pClient->RecvQ.GetNotBrokenPutSize();
+
+	InterlockedIncrement(&pClient->iIOCount);
+	retval = WSARecv(pClient->socket, &wBuf, 1, NULL, 0, &pClient->RecvOverlapped, NULL);
+	if (retval == SOCKET_ERROR)
+	{
+		if (GetLastError() != WSA_IO_PENDING)
+		{
+			if (0 == InterlockedDecrement(&pClient->iIOCount))
+				ReleaseClient();
+			return;
+		}
+	}
+}
+
+void SendPost(st_CLIENT *pClient)
+{
+	int retval, iCount;
+	WSABUF wBuf;
+
+	wBuf.buf = pClient->SendQ.GetWriteBufferPtr();
+	wBuf.len = pClient->SendQ.GetNotBrokenGetSize();
+
+	InterlockedIncrement(&pClient->iIOCount);
+	retval = WSASend(pClient->socket, &wBuf, 1, NULL, 0, &pClient->SendOverlapped, NULL);
+	if (retval == SOCKET_ERROR)
+	{
+		if (GetLastError() != WSA_IO_PENDING)
+		{
+			if (0 == InterlockedDecrement(&pClient->iIOCount))
+				ReleaseClient();
+			return;
+		}
+	}
 }

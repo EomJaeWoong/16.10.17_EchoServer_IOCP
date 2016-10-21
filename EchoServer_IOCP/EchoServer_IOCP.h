@@ -23,6 +23,10 @@ typedef list<st_CLIENT *> CLIENT;
 void InitServer();
 
 st_CLIENT *CreateClient();
+void ReleaseClient();
+
+void RecvPost(st_CLIENT *pClient);
+void SendPost(st_CLIENT *pClient);
 
 unsigned __stdcall AcceptThread(LPVOID acceptArg);
 unsigned __stdcall SendThread(LPVOID sendArg);

@@ -1,0 +1,20 @@
+﻿빌드 시작: 2016-10-21 오전 11:39:15
+     1>2 노드의 "C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\EchoServer_IOCP\EchoServer_IOCP.vcxproj" 프로젝트(Build 대상)입니다.
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt EchoServer_IOCP.cpp
+         EchoServer_IOCP.cpp
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\echoserver_iocp\echoserver_iocp\echoserver_iocp.cpp(93): warning C4101: 'retval' :참조되지 않은 지역 변수입니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\echoserver_iocp\echoserver_iocp\echoserver_iocp.cpp(152): warning C4101: 'RecvBuf' :참조되지 않은 지역 변수입니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\echoserver_iocp\echoserver_iocp\echoserver_iocp.cpp(210): warning C4101: 'iCount' :참조되지 않은 지역 변수입니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\echoserver_iocp\echoserver_iocp\echoserver_iocp.cpp(231): warning C4101: 'iCount' :참조되지 않은 지역 변수입니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\echoserver_iocp\echoserver_iocp\echoserver_iocp.cpp(105): warning C4715: 'AcceptThread' : 모든 제어 경로에서 값을 반환하지는 않습니다.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\Debug\EchoServer_IOCP.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\Debug\EchoServer_IOCP.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\Debug\EchoServer_IOCP.lib" /MACHINE:X86 Debug\EchoServer_IOCP.obj
+         Debug\NPacket.obj
+         Debug\StreamQueue.obj
+         EchoServer_IOCP.vcxproj -> C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\Debug\EchoServer_IOCP.exe
+     1>"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\EchoServer_IOCP\EchoServer_IOCP\EchoServer_IOCP.vcxproj" 프로젝트를 빌드했습니다(Build 대상).
+
+빌드했습니다.
+
+경과 시간: 00:00:00.76
